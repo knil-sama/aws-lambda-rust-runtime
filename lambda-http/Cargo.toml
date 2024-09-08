@@ -20,6 +20,7 @@ default = ["apigw_rest", "apigw_http", "apigw_websockets", "alb", "tracing"]
 apigw_rest = []
 apigw_http = []
 apigw_websockets = []
+lambda_function_urls = []
 alb = []
 pass_through = []
 tracing = ["lambda_runtime/tracing"] # enables access to the Tracing utilities

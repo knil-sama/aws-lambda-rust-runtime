@@ -143,6 +143,20 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_lambda_function_urls() {
+        let data =
+            include_bytes!("../../lambda-events/src/fixtures/example-lambda-function-url.json");
+
+        let req: LambdaRequest = serde_json::from_slice(data).expect("failed to deserialize apigw websocket data");
+        match req {
+            LambdaRequest::WebSocket(req) => {
+                assert_eq!("CONNECT", req.request_context.event_type.unwrap());
+            }
+            other => panic!("unexpected request variant: {:?}", other),
+        }
+    }
+
+    #[test]
     #[cfg(feature = "pass_through")]
     fn test_deserialize_bedrock_agent() {
         let data = include_bytes!("../../lambda-events/src/fixtures/example-bedrock-agent-runtime-event.json");

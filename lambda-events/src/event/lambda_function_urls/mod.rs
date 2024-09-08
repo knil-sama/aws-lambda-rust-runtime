@@ -11,7 +11,8 @@ pub struct LambdaFunctionUrlRequest {
     /// Version is expected to be `"2.0"`
     #[serde(default)]
     pub version: Option<String>,
-    pub route_key: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
+    /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
+    pub route_key: Option<String>,
     #[serde(default)]
     pub raw_path: Option<String>,
     #[serde(default)]
@@ -25,10 +26,11 @@ pub struct LambdaFunctionUrlRequest {
     pub query_string_parameters: HashMap<String, String>,
     pub request_context: LambdaFunctionUrlRequestContext,
     pub body: Option<String>,
-    pub path_parameters:  Option<String>, /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    pub path_parameters:  Option<String>, 
     pub is_base64_encoded: bool,
-    pub stage_variables:  Option<String>, /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
-
+    /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    pub stage_variables:  Option<String>,
 }
 
 /// `LambdaFunctionUrlRequestContext` contains the information to identify the AWS account and resources invoking the Lambda function.
@@ -41,7 +43,8 @@ pub struct LambdaFunctionUrlRequestContext {
     #[serde(default)]
     #[serde(rename = "apiId")]
     pub apiid: Option<String>,
-    pub authentication: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    pub authentication: Option<String>,
     pub authorizer: Option<LambdaFunctionUrlRequestContextAuthorizerDescription>,
     /// DomainName is of the format `"<url-id>.lambda-url.<region>.on.aws"`
     #[serde(default)]
@@ -52,8 +55,10 @@ pub struct LambdaFunctionUrlRequestContext {
     pub http: LambdaFunctionUrlRequestContextHttpDescription,
     #[serde(default)]
     pub request_id: Option<String>,
-    pub route_key: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
-    pub stage: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
+    /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
+    pub route_key: Option<String>,
+    /// Function URLs don't use this parameter. Lambda sets this to $default as a placeholder.
+    pub stage: Option<String>, 
     #[serde(default)]
     pub time: Option<String>,
     pub time_epoch: i64,
@@ -76,8 +81,10 @@ pub struct LambdaFunctionUrlRequestContextAuthorizerIamDescription {
     pub account_id: Option<String>,
     #[serde(default)]
     pub caller_id: Option<String>,
-    pub cognito_identity: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
-    pub principal_org_id: Option<String>, /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    pub cognito_identity: Option<String>,
+    /// Function URLs don't use this parameter. Lambda sets this to null or excludes this from the JSON.
+    pub principal_org_id: Option<String>, 
     #[serde(default)]
     pub user_arn: Option<String>,
     #[serde(default)]
