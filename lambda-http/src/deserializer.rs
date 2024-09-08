@@ -7,6 +7,8 @@ use aws_lambda_events::apigw::ApiGatewayProxyRequest;
 use aws_lambda_events::apigw::ApiGatewayV2httpRequest;
 #[cfg(feature = "apigw_websockets")]
 use aws_lambda_events::apigw::ApiGatewayWebsocketProxyRequest;
+#[cfg(feature = "lambda_function_urls")]
+use aws_lambda_events::lambda_function_url::LambdaFunctionUrlRequest;
 use serde::{de::Error, Deserialize};
 use serde_json::value::RawValue;
 
@@ -37,6 +39,10 @@ impl<'de> Deserialize<'de> for LambdaRequest {
         }
         #[cfg(feature = "apigw_websockets")]
         if let Ok(res) = serde_json::from_str::<ApiGatewayWebsocketProxyRequest>(data) {
+            return Ok(LambdaRequest::WebSocket(res));
+        }
+        #[cfg(feature = "lambda_function_urls")]
+        if let Ok(res) = serde_json::from_str::<LambdaFunctionUrlRequest>(data) {
             return Ok(LambdaRequest::WebSocket(res));
         }
         #[cfg(feature = "pass_through")]
