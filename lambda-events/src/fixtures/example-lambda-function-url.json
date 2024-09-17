@@ -16,7 +16,7 @@
       "parameter2": "value"
     },
     "requestContext": {
-      "accountId": "123456789012",
+      "accountId": "123456789666",
       "apiId": "wt6mne2s9ks",
       "authentication": null,
       "authorizer": {

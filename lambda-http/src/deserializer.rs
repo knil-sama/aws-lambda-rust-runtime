@@ -149,8 +149,8 @@ mod tests {
 
         let req: LambdaRequest = serde_json::from_slice(data).expect("failed to deserialize lambda function url data");
         match req {
-            LambdaRequest::WebSocket(req) => {
-                assert_eq!("CONNECT", req.request_context.event_type.unwrap());
+            LambdaRequest::LambdaFunctionUrls(req) => {
+                assert_eq!("123456789666", req.request_context.account_id.unwrap());
             }
             other => panic!("unexpected request variant: {:?}", other),
         }

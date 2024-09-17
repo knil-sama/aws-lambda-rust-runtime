@@ -19,7 +19,7 @@
     "user-agent": "curl/7.68.0"
   },
   "requestContext": {
-    "accountId": "123456789012",
+    "accountId": "123456789666",
     "apiId": "xxx",
     "domainName": "id.lambda-url.eu-west-2.on.aws",
     "domainPrefix": "id",

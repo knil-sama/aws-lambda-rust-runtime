@@ -7,6 +7,8 @@ use aws_lambda_events::alb::AlbTargetGroupResponse;
 use aws_lambda_events::apigw::ApiGatewayProxyResponse;
 #[cfg(feature = "apigw_http")]
 use aws_lambda_events::apigw::ApiGatewayV2httpResponse;
+#[cfg(feature = "lambda_function_urls")]
+use aws_lambda_events::lambda_function_urls::LambdaFunctionUrlsResponse;
 use aws_lambda_events::encodings::Body;
 use encoding_rs::Encoding;
 use http::{

@@ -16,7 +16,7 @@ categories = ["web-programming::http-server"]
 readme = "README.md"
 
 [features]
-default = ["apigw_rest", "apigw_http", "apigw_websockets", "alb", "tracing"]
+default = ["apigw_rest", "apigw_http", "apigw_websockets", "alb", "tracing", "lambda_function_urls"]
 apigw_rest = []
 apigw_http = []
 apigw_websockets = []
@@ -53,7 +53,7 @@ url = "2.2"
 path = "../lambda-events"
 version = "0.15.0"
 default-features = false
-features = ["alb", "apigw"]
+features = ["alb", "apigw", "lambda_function_urls"]
 
 [dev-dependencies]
 axum-core = "0.4.3"

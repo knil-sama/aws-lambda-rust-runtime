@@ -430,8 +430,8 @@ fn into_lambda_function_urls_request(ag: LambdaFunctionUrlsRequest) -> http::Req
         .uri(uri)
         .extension(RawHttpPath(raw_path))
         .extension(QueryStringParameters(query_string_parameters))
-        .extension(PathParameters(QueryMap::from(ag.path_parameters)))
-        .extension(StageVariables(QueryMap::from(ag.stage_variables)))
+        //.extension(PathParameters(QueryMap::from(ag.path_parameters)))
+        //.extension(StageVariables(QueryMap::from(ag.stage_variables)))
         .extension(RequestContext::LambdaFunctionUrls(ag.request_context));
 
     let mut headers = ag.headers;
@@ -517,7 +517,7 @@ impl RequestContext {
             #[cfg(feature = "apigw_websockets")]
             Self::WebSocket(ag) => Some(&ag.authorizer),
             #[cfg(feature = "lambda_function_urls")]
-            Self::LambdaFunctionUrls(ag) => Some(&ag.authorizer),
+            Self::LambdaFunctionUrls(ag) => ag.authorizer.as_ref(),
             #[cfg(any(feature = "alb", feature = "pass_through"))]
             _ => None,
         }
