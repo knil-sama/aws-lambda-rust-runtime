@@ -50,6 +50,8 @@ pub enum LambdaResponse {
     ApiGatewayV2(ApiGatewayV2httpResponse),
     #[cfg(feature = "alb")]
     Alb(AlbTargetGroupResponse),
+    #[cfg(feature = "lambda_function_urls")]
+    LambdaFunctionUrls(LambdaFunctionUrlsResponse),
     #[cfg(feature = "pass_through")]
     PassThrough(serde_json::Value),
 }
@@ -103,6 +105,31 @@ impl LambdaResponse {
                     multi_value_headers: HeaderMap::new(),
                 })
             }
+            #[cfg(feature = "lambda_function_urls")]
+            RequestOrigin::LambdaFunctionUrls => {
+                use http::header::SET_COOKIE;
+                let mut headers = headers;
+                // ApiGatewayV2 expects the set-cookies headers to be in the "cookies" attribute,
+                // so remove them from the headers.
+                let cookies = headers
+                    .get_all(SET_COOKIE)
+                    .iter()
+                    .cloned()
+                    .map(|v| v.to_str().ok().unwrap_or_default().to_string())
+                    .collect();
+                headers.remove(SET_COOKIE);
+
+                LambdaResponse::LambdaFunctionUrls(LambdaFunctionUrlsResponse {
+                    body,
+                    is_base64_encoded,
+                    status_code: status_code as i64,
+                    cookies,
+                    // API gateway v2 doesn't have "multi_value_headers" field. Duplicate headers
+                    // are combined with commas and included in the headers field.
+                    headers,
+                    multi_value_headers: HeaderMap::new(),
+                })
+            }
             #[cfg(feature = "alb")]
             RequestOrigin::Alb => LambdaResponse::Alb(AlbTargetGroupResponse {
                 body,
@@ -142,9 +169,10 @@ impl LambdaResponse {
                 feature = "apigw_rest",
                 feature = "apigw_http",
                 feature = "alb",
-                feature = "apigw_websockets"
+                feature = "apigw_websockets",
+                feature = "lambda_function_urls"
             )))]
-            _ => compile_error!("Either feature `apigw_rest`, `apigw_http`, `alb`, or `apigw_websockets` must be enabled for the `lambda-http` crate."),
+            _ => compile_error!("Either feature `apigw_rest`, `apigw_http`, `alb`, `apigw_websockets`, `lambda_function_urls` must be enabled for the `lambda-http` crate."),
         }
     }
 }

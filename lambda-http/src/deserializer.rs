@@ -8,7 +8,7 @@ use aws_lambda_events::apigw::ApiGatewayV2httpRequest;
 #[cfg(feature = "apigw_websockets")]
 use aws_lambda_events::apigw::ApiGatewayWebsocketProxyRequest;
 #[cfg(feature = "lambda_function_urls")]
-use aws_lambda_events::lambda_function_url::LambdaFunctionUrlRequest;
+use aws_lambda_events::lambda_function_urls::LambdaFunctionUrlsRequest;
 use serde::{de::Error, Deserialize};
 use serde_json::value::RawValue;
 
@@ -42,8 +42,8 @@ impl<'de> Deserialize<'de> for LambdaRequest {
             return Ok(LambdaRequest::WebSocket(res));
         }
         #[cfg(feature = "lambda_function_urls")]
-        if let Ok(res) = serde_json::from_str::<LambdaFunctionUrlRequest>(data) {
-            return Ok(LambdaRequest::WebSocket(res));
+        if let Ok(res) = serde_json::from_str::<LambdaFunctionUrlsRequest>(data) {
+            return Ok(LambdaRequest::LambdaFunctionUrls(res));
         }
         #[cfg(feature = "pass_through")]
         if PASS_THROUGH_ENABLED {
@@ -147,7 +147,7 @@ mod tests {
         let data =
             include_bytes!("../../lambda-events/src/fixtures/example-lambda-function-url.json");
 
-        let req: LambdaRequest = serde_json::from_slice(data).expect("failed to deserialize apigw websocket data");
+        let req: LambdaRequest = serde_json::from_slice(data).expect("failed to deserialize lambda function url data");
         match req {
             LambdaRequest::WebSocket(req) => {
                 assert_eq!("CONNECT", req.request_context.event_type.unwrap());

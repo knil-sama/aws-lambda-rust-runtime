@@ -6,13 +6,15 @@
 //! [`request_context()`]: crate::RequestExt::request_context()
 //! [`request_context_ref()`]: crate::RequestExt::request_context_ref()
 //! [`RequestExt`]: crate::RequestExt
-#[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets"))]
+#[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets", feature = "lambda_function_urls"))]
 use crate::ext::extensions::{PathParameters, StageVariables};
 #[cfg(any(
     feature = "apigw_rest",
     feature = "apigw_http",
     feature = "alb",
-    feature = "apigw_websockets"
+    feature = "apigw_websockets",
+    feature = "lambda_function_urls"
+
 ))]
 use crate::ext::extensions::{QueryStringParameters, RawHttpPath};
 #[cfg(feature = "alb")]
@@ -25,6 +27,8 @@ use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyRequestCon
 use aws_lambda_events::apigw::{ApiGatewayV2httpRequest, ApiGatewayV2httpRequestContext};
 #[cfg(feature = "apigw_websockets")]
 use aws_lambda_events::apigw::{ApiGatewayWebsocketProxyRequest, ApiGatewayWebsocketProxyRequestContext};
+#[cfg(feature = "lambda_function_urls")]
+use aws_lambda_events::lambda_function_urls::{LambdaFunctionUrlsRequest, LambdaFunctionUrlsRequestContext};
 use aws_lambda_events::{encodings::Body, query_map::QueryMap};
 use http::{header::HeaderName, HeaderMap, HeaderValue};
 
@@ -50,6 +54,8 @@ pub enum LambdaRequest {
     Alb(AlbTargetGroupRequest),
     #[cfg(feature = "apigw_websockets")]
     WebSocket(ApiGatewayWebsocketProxyRequest),
+    #[cfg(feature = "lambda_function_urls")]
+    LambdaFunctionUrls(LambdaFunctionUrlsRequest),
     #[cfg(feature = "pass_through")]
     PassThrough(String),
 }
@@ -68,15 +74,19 @@ impl LambdaRequest {
             LambdaRequest::Alb { .. } => RequestOrigin::Alb,
             #[cfg(feature = "apigw_websockets")]
             LambdaRequest::WebSocket { .. } => RequestOrigin::WebSocket,
+            #[cfg(feature = "lambda_function_urls")]
+            LambdaRequest::LambdaFunctionUrls { .. } => RequestOrigin::LambdaFunctionUrls,
             #[cfg(feature = "pass_through")]
             LambdaRequest::PassThrough { .. } => RequestOrigin::PassThrough,
             #[cfg(not(any(
                 feature = "apigw_rest",
                 feature = "apigw_http",
                 feature = "alb",
-                feature = "apigw_websockets"
+                feature = "apigw_websockets",
+                feature = "lambda_function_urls"
+
             )))]
-            _ => compile_error!("Either feature `apigw_rest`, `apigw_http`, `alb`, or `apigw_websockets` must be enabled for the `lambda-http` crate."),
+            _ => compile_error!("Either feature `apigw_rest`, `apigw_http`, `alb`, `apigw_websockets`, `lambda_function_urls` must be enabled for the `lambda-http` crate."),
         }
     }
 }
@@ -100,6 +110,9 @@ pub enum RequestOrigin {
     /// API Gateway WebSocket
     #[cfg(feature = "apigw_websockets")]
     WebSocket,
+    /// Lambda Function Urls
+    #[cfg(feature = "lambda_function_urls")]
+    LambdaFunctionUrls,
     /// PassThrough request origin
     #[cfg(feature = "pass_through")]
     PassThrough,
@@ -364,7 +377,7 @@ fn into_pass_through_request(data: String) -> http::Request<Body> {
         .expect("failed to build request")
 }
 
-#[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets"))]
+#[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets", feature="lambda_function_urls"))]
 fn apigw_path_with_stage(stage: &Option<String>, path: &str) -> String {
     if env::var("AWS_LAMBDA_HTTP_IGNORE_STAGE_IN_PATH").is_ok() {
         return path.into();
@@ -384,6 +397,69 @@ fn apigw_path_with_stage(stage: &Option<String>, path: &str) -> String {
     }
 }
 
+
+#[cfg(feature = "lambda_function_urls")]
+fn into_lambda_function_urls_request(ag: LambdaFunctionUrlsRequest) -> http::Request<Body> {
+    let http_method = ag.request_context.http.method.clone();
+    let host = ag
+        .headers
+        .get(http::header::HOST)
+        .and_then(|s| s.to_str().ok())
+        .or(ag.request_context.domain_name.as_deref());
+    let raw_path = ag.raw_path.unwrap_or_default();
+    let path = apigw_path_with_stage(&ag.request_context.stage, &raw_path);
+
+    // don't use the query_string_parameters from API GW v2 to
+    // populate the QueryStringParameters extension because
+    // the value is not compatible with the whatgw specification.
+    // See: https://github.com/awslabs/aws-lambda-rust-runtime/issues/470
+    // See: https://url.spec.whatwg.org/#urlencoded-parsing
+    let query_string_parameters = if let Some(query) = &ag.raw_query_string {
+        query.parse().unwrap() // this is Infallible
+    } else {
+        ag.query_string_parameters
+    };
+
+    let mut uri = build_request_uri(&path, &ag.headers, host, None);
+    if let Some(query) = ag.raw_query_string {
+        uri.push('?');
+        uri.push_str(&query);
+    }
+
+    let builder = http::Request::builder()
+        .uri(uri)
+        .extension(RawHttpPath(raw_path))
+        .extension(QueryStringParameters(query_string_parameters))
+        .extension(PathParameters(QueryMap::from(ag.path_parameters)))
+        .extension(StageVariables(QueryMap::from(ag.stage_variables)))
+        .extension(RequestContext::LambdaFunctionUrls(ag.request_context));
+
+    let mut headers = ag.headers;
+    update_xray_trace_id_header(&mut headers);
+    if let Some(cookies) = ag.cookies {
+        if let Ok(header_value) = HeaderValue::from_str(&cookies.join(";")) {
+            headers.insert(http::header::COOKIE, header_value);
+        }
+    }
+
+    let base64 = ag.is_base64_encoded;
+
+    let mut req = builder
+        .body(
+            ag.body
+                .as_deref()
+                .map_or_else(Body::default, |b| Body::from_maybe_encoded(base64, b)),
+        )
+        .expect("failed to build request");
+
+    // no builder method that sets headers in batch
+    let _ = std::mem::replace(req.headers_mut(), headers);
+    let _ = std::mem::replace(req.method_mut(), http_method);
+
+    req
+}
+
+
 /// Event request context as an enumeration of request contexts
 /// for both ALB and API Gateway and HTTP API events
 #[derive(Deserialize, Debug, Clone, Serialize)]
@@ -401,6 +477,9 @@ pub enum RequestContext {
     /// WebSocket request context
     #[cfg(feature = "apigw_websockets")]
     WebSocket(ApiGatewayWebsocketProxyRequestContext),
+    /// LambdaFunctionUrls request context
+    #[cfg(feature = "lambda_function_urls")]
+    LambdaFunctionUrls(LambdaFunctionUrlsRequestContext),
     /// Custom request context
     #[cfg(feature = "pass_through")]
     PassThrough,
@@ -418,6 +497,8 @@ impl From<LambdaRequest> for http::Request<Body> {
             LambdaRequest::Alb(alb) => into_alb_request(alb),
             #[cfg(feature = "apigw_websockets")]
             LambdaRequest::WebSocket(ag) => into_websocket_request(ag),
+            #[cfg(feature = "lambda_function_urls")]
+            LambdaRequest::LambdaFunctionUrls(ag) => into_lambda_function_urls_request(ag),
             #[cfg(feature = "pass_through")]
             LambdaRequest::PassThrough(data) => into_pass_through_request(data),
         }
@@ -426,7 +507,7 @@ impl From<LambdaRequest> for http::Request<Body> {
 
 impl RequestContext {
     /// Returns the Api Gateway Authorizer information for a request.
-    #[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets"))]
+    #[cfg(any(feature = "apigw_rest", feature = "apigw_http", feature = "apigw_websockets", feature = "lambda_function_urls"))]
     pub fn authorizer(&self) -> Option<&ApiGatewayRequestAuthorizer> {
         match self {
             #[cfg(feature = "apigw_rest")]
@@ -435,6 +516,8 @@ impl RequestContext {
             Self::ApiGatewayV2(ag) => ag.authorizer.as_ref(),
             #[cfg(feature = "apigw_websockets")]
             Self::WebSocket(ag) => Some(&ag.authorizer),
+            #[cfg(feature = "lambda_function_urls")]
+            Self::LambdaFunctionUrls(ag) => Some(&ag.authorizer),
             #[cfg(any(feature = "alb", feature = "pass_through"))]
             _ => None,
         }
@@ -618,10 +701,10 @@ mod tests {
     }
 
     #[test]
-    fn deserializes_lambda_function_url_request_events() {
+    fn deserializes_lambda_function_urls_request_events() {
         // from the docs
         // https://docs.aws.amazon.com/lambda/latest/dg/urls-invocation.html#urls-payloads
-        let input = include_str!("../tests/data/lambda_function_url_request.json");
+        let input = include_str!("../tests/data/lambda_function_urls_request.json");
         let result = from_str(input);
         assert!(
             result.is_ok(),
@@ -645,8 +728,8 @@ mod tests {
         // Ensure this is an APIGWv2 request (Lambda Function URL requests confirm to API GW v2 Request format)
         let req_context = req.request_context_ref().expect("Request is missing RequestContext");
         assert!(
-            matches!(req_context, &RequestContext::ApiGatewayV2(_)),
-            "expected ApiGatewayV2 context, got {req_context:?}"
+            matches!(req_context, &RequestContext::LambdaFunctionUrls(_)),
+            "expected LambdaFunctionUrls context, got {req_context:?}"
         );
     }
 
