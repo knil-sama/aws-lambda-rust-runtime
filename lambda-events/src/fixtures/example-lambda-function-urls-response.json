@@ -38,5 +38,7 @@
     "X-Forwarded-Port": ["443"],
     "X-Forwarded-Proto": ["https"]
   },
+  "isBase64Encoded": false,
+  "cookies": ["cookie1", "cookie2"],
   "body": "Hello World"
  }
