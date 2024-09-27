@@ -41,6 +41,7 @@ impl<'de> Deserialize<'de> for LambdaRequest {
         if let Ok(res) = serde_json::from_str::<ApiGatewayWebsocketProxyRequest>(data) {
             return Ok(LambdaRequest::WebSocket(res));
         }
+        // We never reach here  because it match ApiGatewayV2httpRequest first
         #[cfg(feature = "lambda_function_urls")]
         if let Ok(res) = serde_json::from_str::<LambdaFunctionUrlsRequest>(data) {
             return Ok(LambdaRequest::LambdaFunctionUrls(res));
@@ -145,7 +146,7 @@ mod tests {
     #[test]
     fn test_deserialize_lambda_function_urls() {
         let data =
-            include_bytes!("../../lambda-events/src/fixtures/example-lambda-function-url.json");
+            include_bytes!("../../lambda-events/src/fixtures/example-lambda-function-urls-request.json");
 
         let req: LambdaRequest = serde_json::from_slice(data).expect("failed to deserialize lambda function url data");
         match req {
